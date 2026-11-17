@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chicago 311 Rain &amp; Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<link href="css/app.css?v=11" rel="stylesheet">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Chicago 311 · Rain &amp; Tree</h1>
+    <span class="live" id="liveLine"><i class="dot"></i><b id="liveCount">–</b> requests · updated <span id="liveTime">–</span> · <span id="status">Loading live 311 data…</span></span>
+  </div>
+  <div class="controls">
+    <div class="tags" id="range" role="group" aria-label="Time frame">
+      <button data-r="1" aria-pressed="false" title="Last 24 hours">24 h</button>
+      <button data-r="7" aria-pressed="true" title="Last 7 days">7 d</button>
+      <button data-r="30" aria-pressed="false" title="Last 30 days">30 d</button>
+      <button data-r="june" aria-pressed="false" title="June 1–30, 2026">June 2026</button>
+      <button data-r="custom" aria-pressed="false" title="Pick your own dates">Custom</button>
+    </div>
+    <div id="customDates" class="custom hidden">
+      <label>From <input type="date" id="from" min="2018-07-01"></label>
+      <label>To <input type="date" id="to" min="2018-07-01"></label>
+      <div class="tags">
+        <button data-q="90" title="Last 90 days">90 d</button>
+        <button data-q="mtd" title="Month to date">Month to date</button>
+        <button data-q="ytd" title="Year to date">Year to date</button>
+      </div>
+    </div>
+    <div id="cats" class="cats" role="group" aria-label="Request types"></div>
+    <button id="refresh" title="Fetch the newest requests now">Refresh</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panels left">
+    <article class="card" id="scopeCard">
+      <h2>Active scope <span id="scopeName" class="muted">Citywide</span></h2>
+      <div id="scopeStats" class="stats"></div>
+      <p id="scopeRate" class="hint"></p>
+      <canvas id="trend" height="170" aria-label="Requests over time for the active scope"></canvas>
+      <button id="clearScope" class="link">Reset to citywide</button>
+    </article>
+
+    <article class="card" id="probeCard">
+      <h2><span id="probeTitle">Cursor probe</span>
+        <label class="muted"><input type="checkbox" id="probeOn" checked> Follow cursor</label></h2>
+      <p id="probeHint" class="hint"></p>
+      <div id="probeStats" class="stats"></div>
+      <p id="probeLQ" class="hint"></p>
+    </article>
+  </aside>
+
+  <section class="mapwrap" aria-label="Map">
+    <div id="map"></div>
+    <div class="maptools">
+      <div class="tags" id="mapMode" role="group" aria-label="Map type">
+        <button data-m="heat" aria-pressed="true" title="Press 1">Heatmap</button>
+        <button data-m="grid" aria-pressed="false" title="Press 2">Grid</button>
+        <button data-m="points" aria-pressed="false" title="Press 3">Points</button>
+        <button data-m="choropleth" aria-pressed="false" title="Press 4">Community areas</button>
+        <button data-m="hotspots" aria-pressed="false" title="Press 5: Getis-Ord Gi* from the QGIS project">Hot spots</button>
+      </div>
+      <div class="tags hidden" id="hotMethod" role="group" aria-label="Hot spot method">
+        <span>June 2026</span>
+        <button data-hm="hu" aria-pressed="true" title="Getis-Ord Gi* on calls per housing unit">Per housing unit</button>
+        <button data-hm="base" aria-pressed="false" title="Each hexagon against its own June 2023–25">Rise vs normal June</button>
+      </div>
+      <div class="tags hidden" id="hotKind" role="group" aria-label="Hot spot request type">
+        <span>Type</span>
+        <button data-h="all" aria-pressed="true">All</button>
+        <button data-h="tree" aria-pressed="false">Tree</button>
+        <button data-h="water" aria-pressed="false">Water</button>
+      </div>
+      <div class="tags" id="norm" role="group" aria-label="Normalize heat and grid">
+        <span>Normalize</span>
+        <button data-n="raw" aria-pressed="true" title="Raw request counts">Count</button>
+        <button data-n="day" aria-pressed="false" title="Requests per week, so every time frame uses the same scale">Per week</button>
+        <button data-n="hh" aria-pressed="false" title="Each request weighted by 1,000 ÷ households in its community area">Per 1k households</button>
+      </div>
+    </div>
+    <button id="legendToggle" class="legend-toggle" aria-expanded="false">Legend</button>
+    <div id="legend" class="legend" aria-live="polite"></div>
+    <div id="probe" class="probe hidden"></div>
+  </section>
+
+  <aside class="panels right">
+    <article class="card">
+      <h2>Relevancy points</h2>
+      <p class="hint">The three densest spots on the heatmap or grid. Observed calls within the radius against the number expected if the home community area's calls were spread evenly.</p>
+      <table class="cmp"><thead><tr><th>Point</th><th title="Calls within the radius">Obs.</th><th title="Expected from the home community area's density">Exp.</th><th>LQ</th><th title="Poisson p, Bonferroni-corrected for every cell searched">Adj. p</th><th>Relevant</th></tr></thead><tbody id="peakBody"></tbody></table>
+      <p class="caption">"Relevant" means adj. p &lt; 0.05 and at least 5 calls. Calls cluster more than the Poisson test assumes, so it is a screen, not proof. Source: City of Chicago 311 (v6vf-nfxy), 2026.</p>
+    </article>
+
+    <article class="card">
+      <h2>Community areas</h2>
+      <div class="tags tabs" id="caSort" role="group" aria-label="Measure">
+        <button data-k="count" aria-pressed="true">Count</button>
+        <button data-k="rate" aria-pressed="false">Per 1k households</button>
+        <button data-k="june" aria-pressed="false">June 2026</button>
+        <button data-k="juneRate" aria-pressed="false">June per 1k</button>
+        <button data-k="waterLQ" aria-pressed="false" title="Water share of the area's calls ÷ water share citywide">Water LQ</button>
+      </div>
+      <ol id="caList" class="rank"></ol>
+      <p class="caption" id="caMetricNote"></p>
+    </article>
+
+    <article class="card">
+      <h2>Area comparison</h2>
+      <div class="row">
+        <input id="addr" placeholder="Address, e.g. 3600 W Madison St" autocomplete="off" aria-label="Address">
+        <button id="addAddr">Add</button>
+        <button id="addCenter" title="Add the point at the centre of the map">Map centre</button>
+      </div>
+      <label class="slider">Radius <input id="radius" type="range" min="0.1" max="1" step="0.05" value="0.25"> <b id="radiusVal">0.25 mi</b></label>
+      <table class="cmp"><thead><tr><th>Place</th><th title="Tree Emergency">TE</th><th title="Tree Debris">TD</th><th title="Water in Basement">WB</th><th title="Water on Street">WS</th><th>All</th><th title="Location quotient vs home community area density">LQ</th><th title="Calls here ÷ calls at the reference point, equal circles">vs ref</th><th></th></tr></thead><tbody id="cmpBody"></tbody></table>
+      <p class="caption">LQ = calls in the circle ÷ (home community area's calls per sq mi × circle area). "vs ref" = calls here ÷ calls at the reference, with a two-sided binomial test; n.s. = not significant at 0.05. It compares places, not causes: households, canopy and drainage differ too. Shift-click the map to add a point. Source: City of Chicago 311 (v6vf-nfxy), 2026.</p>
+    </article>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script type="module" src="js/app.js?v=12"></script>
+</body>
+</html>

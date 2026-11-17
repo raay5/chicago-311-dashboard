@@ -132,6 +132,18 @@ table.cmp{width:100%;border-collapse:collapse;font-size:12px}
   .panels,.panels.right{border:0;flex-direction:column;padding:var(--space-4)}
   .panels.right .card{min-width:0}
   .stats{grid-template-columns:repeat(3,1fr)}
+  .maptools{right:52px;gap:4px}
+  .maptools .tags{padding:3px}
+  .maptools .tags button{padding:2px 8px;font-size:11px}
+  .controls{gap:6px}
+  .cmp{display:block;overflow-x:auto}
+}
+@media (max-width:480px){
+  .top{padding:var(--space-2) var(--space-3)}
+  h1{font-size:14px}
+  .tags button,.cats label{padding:2px 8px;font-size:11px}
+  .mapwrap{height:60vh}
+  .panels,.panels.right{padding:var(--space-3)}
   .legend{display:none;bottom:30px}
   .legend.open{display:block}
   .legend-toggle{display:block}

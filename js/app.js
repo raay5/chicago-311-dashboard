@@ -124,6 +124,7 @@ queueMicrotask(() => {
   map.addControl(new maplibregl.ScaleControl({ unit: "imperial", maxWidth: 120 }), "bottom-right");
 });
 map.on("error", e => console.warn("map:", e.error?.message || e));
+new ResizeObserver(() => map.resize()).observe(document.getElementById("map"));
 window.dashboard = { map, state };   // handy for debugging from the console
 const empty = { type: "FeatureCollection", features: [] };
 
